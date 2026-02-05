@@ -1,58 +1,122 @@
 import click
 import main
 import json
+import sys
+from typing import Optional
 
 
-token = None
+class CliContext:
+    """Context object to store CLI state."""
+    
+    def __init__(self):
+        self.token: Optional[str] = None
+
+
+pass_context = click.make_pass_decorator(CliContext, ensure=True)
+
 
 @click.group()
-def cli():
+@click.pass_context
+def cli(ctx):
     """Unofficial CAME Connect CLI."""
-    # Fetch a token for the CLI duration
-    # TODO: Don't fetch if you're calling --help
-    global token
-    token = main.fetch_token()
+    # Initialize context
+    ctx.obj = CliContext()
+    
+    # Validate environment variables before proceeding
+    try:
+        main.validate_env_vars()
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
 
 @cli.group()
-def devices():
+@pass_context
+def devices(ctx: CliContext):
     """Manage Devices."""
+    # Fetch token when needed
+    if ctx.token is None:
+        try:
+            ctx.token = main.fetch_token()
+        except Exception as e:
+            click.echo(f"Error fetching token: {e}", err=True)
+            sys.exit(1)
+
 
 @cli.group()
-def site():
+@pass_context
+def site(ctx: CliContext):
     """Manages Sites."""
+    # Fetch token when needed
+    if ctx.token is None:
+        try:
+            ctx.token = main.fetch_token()
+        except Exception as e:
+            click.echo(f"Error fetching token: {e}", err=True)
+            sys.exit(1)
+
 
 @site.command("read")
-def sites_read():
+@pass_context
+def sites_read(ctx: CliContext):
     """Read sites"""
-    sites = main.fetch_sites(token)
-    click.echo(json.dumps(sites, indent=2))
+    try:
+        sites = main.fetch_sites(ctx.token)
+        click.echo(json.dumps(sites, indent=2))
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
 
 @devices.command("read")
-def devices_read():
+@pass_context
+def devices_read(ctx: CliContext):
     """Read Devices"""
-    devices = main.fetch_devices(token)
-    click.echo(json.dumps(devices, indent=2))
+    try:
+        devices_list = main.fetch_devices(ctx.token)
+        click.echo(json.dumps(devices_list, indent=2))
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
 
 @devices.command("status")
-def devices_status():
+@pass_context
+def devices_status(ctx: CliContext):
     """Read Device Statuses"""
-    statuses = main.fetch_device_statuses(token)
-    click.echo(json.dumps(statuses, indent=2))
+    try:
+        statuses = main.fetch_device_statuses(ctx.token)
+        click.echo(json.dumps(statuses, indent=2))
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
 
 @devices.command("commands")
 @click.argument("device_id", type=int)
-def device_commands(device_id):
+@pass_context
+def device_commands(ctx: CliContext, device_id: int):
     """Read Device Commands"""
-    commands = main.fetch_commands_for_device(token, device_id)
-    click.echo(json.dumps(commands, indent=2))
+    try:
+        commands = main.fetch_commands_for_device(ctx.token, str(device_id))
+        click.echo(json.dumps(commands, indent=2))
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
 
 @devices.command("run_command")
 @click.argument("device_id", type=int)
 @click.argument("command_id", type=int)
-def device_run_command(device_id, command_id):
+@pass_context
+def device_run_command(ctx: CliContext, device_id: int, command_id: int):
     """Run a Device Command"""
-    run = main.run_command_for_device(token, device_id, command_id)
-    click.echo(json.dumps(run, indent=2))
+    try:
+        run = main.run_command_for_device(ctx.token, str(device_id), str(command_id))
+        click.echo(json.dumps(run, indent=2))
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
